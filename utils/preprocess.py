@@ -17,5 +17,27 @@ def load_df(csv, return_target=True, combine_cases=False, culmulative=False):
     df.drop(df.head(1).index,inplace=True)
     return df
 
+
+def series_to_supervised(data, window=20):
+    data = np.array(data)
+    x = []
+    y = []
+    for i in range(0, len(data)-window-1):
+        x.append(data[i:i+window])
+        y.append(data[i+window+1])
+
+    x = np.concatenate(x).reshape(-1, window)
+    y = np.concatenate(y)
+    return x, y
+
+
+def oof_idx(data, te_idx, window=20):
+    return list(range(min(te_idx)-window, max(te_idx)))
+
+
+# def make_oof_prediction(data, te_idx, window=10):
+#     for 
+
+
 if __name__ == '__main__':
     load_df('./input/observations_1.csv')
