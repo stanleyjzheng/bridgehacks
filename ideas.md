@@ -15,6 +15,13 @@
 6. Reverse engineering the creation (since it is generative)
 7. Visualizing the output of the model.
 
+# Actual models used
+- XGBoost
+- Tensorflow (LSTM, RNN, AE MLP)
+- ARIMA
+- DAE
+- AutoML
+
 # Possibly dumb ideas
 - GAN (generative)
 - Classifier

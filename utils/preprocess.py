@@ -31,8 +31,18 @@ def series_to_supervised(data, window=20):
     return x, y
 
 
+def scale_data(df):
+    """
+    Scale data using StandardScaler
+    """
+    scaler = StandardScaler()
+    scaler.fit(df)
+    scaled_data = scaler.transform(df)
+    return scaled_data, scaler
+
+
 def oof_idx(data, te_idx, window=20):
-    return list(range(min(te_idx)-window, max(te_idx)))
+    return list(range(min(te_idx)-window, max(te_idx)+1))
 
 
 # def make_oof_prediction(data, te_idx, window=10):
