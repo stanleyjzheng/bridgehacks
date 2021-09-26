@@ -38,7 +38,7 @@ def get_lstm(num_cols=6):
     return model
 
 
-def get_gru():
+def get_gru(num_cols=6):
     model = tf.keras.models.Sequential([
         tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128, return_sequences=True)),
         tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128)),
@@ -48,7 +48,7 @@ def get_gru():
     return model
 
 
-def get_cnn():
+def get_cnn(num_cols=6):
     model_cnn = tf.keras.models.Sequential()
     model_cnn.add(tf.keras.layers.Conv1D(filters=64, kernel_size=2, activation='relu'))
     model_cnn.add(tf.keras.layers.MaxPooling1D(pool_size=2))

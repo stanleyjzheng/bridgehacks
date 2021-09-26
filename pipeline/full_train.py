@@ -4,6 +4,8 @@ import sys
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(os.path.split(dir_path)[0], 'utils'))
+sys.path.append('./utils')
+sys.path.append('./pipeline')
 
 import tensorflow as tf
 from sklearn.model_selection import KFold
@@ -18,7 +20,27 @@ import glob
 import pandas as pd
 
 
-def citywise_stack_meta(df_path, window_size=50):
+def citywise_stack_meta(df_path, window_size=50, model_type='lstm'):
+    dfs = []
+    models = []
+
+    tr_idx = 0
+
+    df = load_df(df_path, additional_features=True)
+    df = df[[i for i in df.columns if i != 'total_cases'] + ['total_cases']]
+    del df['total_cases_nextday']
+    print(df)
+
+    tr, scaler = scale_data(df.values)
+
+    data = series_to_supervised(tr, n_in=window_size)
+    model = walk_forward_validation_meta(data, model_type=model_type)
+    models.append(model)
+
+    save_models(models, stack=True, model_type=model_type)
+
+
+def citywise_cv_meta(df_path, window_size=50, model_type='lstm'):
     dfs = []
     models = []
 
@@ -31,38 +53,18 @@ def citywise_stack_meta(df_path, window_size=50):
     tr, scaler = scale_data(df.values)
 
     data = series_to_supervised(tr, n_in=window_size)
-    model = walk_forward_validation_meta(data, model_type='lstm')
+    model = walk_forward_validation_meta(data, model_type=model_type)
     models.append(model)
-
-    save_models(models, stack=True)
-
-
-def citywise_cv_meta(df_path, window_size=50):
-    dfs = []
-    models = []
-
-    tr_idx = 0
-
-    df = load_df(df_path, additional_features=True)
-    df = df[[i for i in df.columns if i != 'total_cases'] + ['total_cases']]
-    del df['total_cases_nextday']
-
-    tr, scaler = scale_data(df.values)
-
-    data = series_to_supervised(tr, n_in=window_size)
-    model = walk_forward_validation_meta(data)
-    models.append(model)
-    save_models(models, stack=False)
+    save_models(models, stack=False, model_type=model_type)
 
 
-def save_models(models, stack=False):
+def save_models(models, stack=False, model_type="lstm"):
     save_dir = './models_task2'
     p1 = True
     fold = 0
 
     for i in models:
         meta = "meta"
-        model_type = "lstm"
         if stack:
             if p1:
                 name = f"tf_fold_{fold}_{model_type}_stackp1_{meta}.h5"
@@ -81,12 +83,11 @@ def save_models(models, stack=False):
 def model_prediction(data_csv, number_of_days):
     model_type = 'lstm'
     save_dir = 'models_task2'
-    # if not os.path.exists(save_dir):
-    #     os.makedirs(save_dir)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
 
-    # citywise_cv_meta(data_csv)
-    # citywise_stack_meta(data_csv)
-
+    for model_type in ["lstm", "gru", "cnn"]:
+        citywise_stack_meta(data_csv, model_type=model_type)
     tf_meta_models = []
     print(f'./{save_dir}/*')
     for i in glob.glob(f'./{save_dir}/*'):

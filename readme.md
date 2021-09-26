@@ -9,8 +9,14 @@
 - Feature engineering for some models. Using meta labels, such as cumulative case counts, total vaccinated, etc. we get much better MAE, faster convergence, and our model does not "lag" one day behind in our CV; this indicates better robustness.
 - A lot more to talk about but no time. We will update this readme on GitHub to provide our full solution.
 
+### Usage
+1. `pip install -r requirements.txt`
+2. Then import task 2 `from our_sub import model_prediction`.
+    - For example, `model_prediction('./input/observations_1.csv', 100)`
+    - Saves to `predictions.csv`
+
 ### All 74 models
-| path                                           | mse  | graph overlap? | type |
+| path                                           | mse   | graph overlap? | type |
 | ---------------------------------------------- | ----- | -------------- | ---- |
 | ./models/tf\_fold\_0\_gru\_nostack\_nometa.h5  | 80559 | y              | gru  |
 | ./models/tf\_fold\_1\_gru\_nostack\_nometa.h5  | 3458  | y              | gru  |

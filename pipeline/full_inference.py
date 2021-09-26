@@ -38,7 +38,9 @@ def infer_only_meta(df, tf_meta_models, future_pred=100, num_cols=6):
         final_output.append(meta_scaler.inverse_transform(meta_pred)[-1])
 
         meta_window = np.append(meta_window, np.expand_dims(np.array(meta_pred), axis=1), axis=1)[1:]
-    pd.DataFrame({'Predicted_infections': np.array(final_output)}).to_csv('predictions.csv', index=False)
+    scale_factor = np.mean(df['total_cases'].values)/np.mean(df['cumulative_cases'].values)
+    print(scale_factor)
+    pd.DataFrame({'Predicted_infections': np.array(final_output)*scale_factor}).to_csv('predictions.csv', index=False)
     print('saved to predictions.csv')
     return final_output
 
