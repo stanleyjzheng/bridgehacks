@@ -14,6 +14,11 @@ from tensorflow.keras.callbacks import ReduceLROnPlateau
 
 
 def get_mlp():
+    """Get MLP model
+
+    Returns:
+        tf.keras.model: model
+    """
     model_mlp = tf.keras.models.Sequential()
     if num_cols == 1:
         input_shape = [window_size]
@@ -29,6 +34,11 @@ def get_mlp():
 
 
 def get_lstm(num_cols=6):
+    """Get LSTM model
+
+    Returns:
+        tf.keras.model: model
+    """
     model = tf.keras.models.Sequential([
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128)),
@@ -39,6 +49,11 @@ def get_lstm(num_cols=6):
 
 
 def get_gru(num_cols=6):
+    """Get GRU model
+
+    Returns:
+        tf.keras.model: model
+    """
     model = tf.keras.models.Sequential([
         tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128, return_sequences=True)),
         tf.keras.layers.Bidirectional(tf.keras.layers.GRU(128)),
@@ -49,6 +64,11 @@ def get_gru(num_cols=6):
 
 
 def get_cnn(num_cols=6):
+    """Get CNN model
+
+    Returns:
+        tf.keras.model: model
+    """
     model_cnn = tf.keras.models.Sequential()
     model_cnn.add(tf.keras.layers.Conv1D(filters=64, kernel_size=2, activation='relu'))
     model_cnn.add(tf.keras.layers.MaxPooling1D(pool_size=2))
@@ -59,6 +79,11 @@ def get_cnn(num_cols=6):
     return model_cnn
 
 def create_ae_mlp(num_columns, num_labels, hidden_units, dropout_rates, ls = 1e-2, lr = 1e-3):
+    """Get autoencoder MLP model
+
+    Returns:
+        tf.keras.model: model
+    """
     inp = tf.keras.layers.Input(shape = (num_columns, ))
     x0 = tf.keras.layers.BatchNormalization()(inp)
     
@@ -107,7 +132,12 @@ def create_ae_mlp(num_columns, num_labels, hidden_units, dropout_rates, ls = 1e-
 
 
 def citywise_cv(df_paths):
-    """concatenates two city cv for one model"""
+    """
+    Concatenate models in 3 folds (validating on entirely different cities)
+
+    Args:
+        df_paths (list): list of paths to train on in folds
+    """    
     dfs = []
     models = []
 
@@ -155,7 +185,12 @@ def citywise_cv(df_paths):
     save_models(models, stack=False)
 
 def citywise_stack(df_paths):
-    """stacks two models per city cv"""
+    """
+    Stack models 2 models in 3 folds (validating on entirely different cities)
+
+    Args:
+        df_paths (list): list of paths to train on in folds
+    """    
     dfs = []
     models = []
 
@@ -206,6 +241,15 @@ def citywise_stack(df_paths):
 
 
 def walk_forward_validation(train, model_type):
+    """Validate by getting MAE on next day
+
+    Args:
+        train (np.ndarray): train array
+        model_type ([type]): model name to load from
+
+    Returns:
+        tf.keras.models.Model: model
+    """
     train = np.asarray(train)
     trainX, trainy = train[:, :-1], train[:, -1]
 
@@ -234,6 +278,15 @@ def walk_forward_validation(train, model_type):
 
 
 def walk_forward_validation_meta(train, num_cols=6, window_size=50, model_type='lstm'):
+    """Validate by getting MAE on next day with 6 column metadat model
+
+    Args:
+        train (np.ndarray): train array
+        model_type ([type]): model name to load from
+
+    Returns:
+        tf.keras.models.Model: model
+    """
     train = np.asarray(train).reshape(-1, num_cols, window_size+1)
     trainX, trainy = train[:, :, :-1], train[:, :, -1]
 
@@ -253,6 +306,12 @@ def walk_forward_validation_meta(train, num_cols=6, window_size=50, model_type='
 
 
 def citywise_stack_meta(df_paths):
+    """
+    Stack models in 3 folds (validating on entirely different cities), using metadata
+
+    Args:
+        df_paths (list): list of paths to train on in folds
+    """
     dfs = []
     models = []
 
@@ -302,6 +361,12 @@ def citywise_stack_meta(df_paths):
 
 
 def citywise_cv_meta(df_paths):
+    """
+    Concatenate models in 3 folds (validating on entirely different cities), using metadata
+
+    Args:
+        df_paths (list): list of paths to train on in folds
+    """
     dfs = []
     models = []
 
@@ -349,6 +414,13 @@ def citywise_cv_meta(df_paths):
 
 
 def save_models(models, stack=False):
+    """Save models to directory (tensorflow only)
+
+    Args:
+        models (list of tf.keras.model): models to save
+        stack (bool, optional): save two copies of the same fold. Defaults to False.
+        model_type (str, optional): incorporated into save path. Defaults to "lstm".
+    """
     p1 = True
     fold = 0
 

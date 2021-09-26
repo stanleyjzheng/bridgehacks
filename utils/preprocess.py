@@ -17,6 +17,10 @@ def load_df(csv, additional_features=False, population=None):
 
 
 def process_df(df, additional_features=False):
+    """
+    Preprocesses the data from the csv file.
+    :return: pd.DataFrame
+    """
     df['total_cases'] = df['infected_unvaccinated'] + df['infected_vaccinated']
     df['total_cases_nextday'] = df['total_cases'].shift(1)
     df.drop(df.head(1).index,inplace=True)
@@ -45,6 +49,9 @@ def process_df(df, additional_features=False):
 
 
 def series_to_supervised_old_(data, window=20):
+    """
+    Old/deprecated version of series_to_supervised. Used for testing.
+    """
     data = np.array(data)
     x = []
     y = []
@@ -58,26 +65,37 @@ def series_to_supervised_old_(data, window=20):
 
 
 def series_to_supervised(data, n_in=1, n_out=1, dropnan=True, shift=0):
-	n_vars = 1 if type(data) is list else data.shape[1]
-	df = pd.DataFrame(data)
-	cols = list()
-	# input sequence (t-n, ... t-1)
-	for i in range(n_in, 0, -1):
-		cols.append(df.shift(i))
-	# forecast sequence (t, t+1, ... t+n)
-	for i in range(0, n_out):
-		cols.append(df.shift(-i-shift))
-	# put it all together
-	agg = pd.concat(cols, axis=1)
-	# drop rows with NaN values
-	if dropnan:
-		agg.dropna(inplace=True)
-	return agg.values
+    """
+    Frame a time series as a supervised learning dataset.
+    Arguments:
+        data: Sequence of observations as a list or NumPy array.
+        n_in: Number of lag observations as input (X).
+        n_out: Number of observations as output (y).
+        dropnan: Boolean whether or not to drop rows with NaN values.
+    Returns:
+        Pandas DataFrame of series framed for supervised learning.
+        Returns np.ndarray if np.ndarray is inputted.
+    """
+    n_vars = 1 if type(data) is list else data.shape[1]
+    df = pd.DataFrame(data)
+    cols = list()
+    # input sequence (t-n, ... t-1)
+    for i in range(n_in, 0, -1):
+        cols.append(df.shift(i))
+    # forecast sequence (t, t+1, ... t+n)
+    for i in range(0, n_out):
+        cols.append(df.shift(-i-shift))
+    # put it all together
+    agg = pd.concat(cols, axis=1)
+    # drop rows with NaN values
+    if dropnan:
+        agg.dropna(inplace=True)
+    return agg.values
 
 
 def scale_data(df):
     """
-    Scale data using StandardScaler
+    Scale data using scikit StandardScaler
     """
     scaler = StandardScaler()
     scaler.fit(df)
@@ -86,12 +104,14 @@ def scale_data(df):
 
 
 def oof_idx(data, te_idx, window=20):
+    """
+    Convert out of fold index to accomidate for a pre-window 
+    """
     return list(range(min(te_idx)-window, max(te_idx)+1))
 
 
-# def make_oof_prediction(data, te_idx, window=10):
-#     for 
-
-
 if __name__ == '__main__':
+    """
+    quick testing
+    """
     load_df('./input/observations_1.csv')

@@ -21,6 +21,13 @@ import pandas as pd
 
 
 def citywise_stack_meta(df_path, window_size=50, model_type='lstm'):
+    """Stack models on city and use metadata
+
+    Args:
+        df_path (str): csv path
+        window_size (int, optional): window size. Defaults to 50.
+        model_type (str, optional): model name, lstm, gru, etc. Defaults to 'lstm'.
+    """
     dfs = []
     models = []
 
@@ -41,6 +48,13 @@ def citywise_stack_meta(df_path, window_size=50, model_type='lstm'):
 
 
 def citywise_cv_meta(df_path, window_size=50, model_type='lstm'):
+    """Simultaneousluy train models on city and use metadata
+
+    Args:
+        df_path (str): csv path
+        window_size (int, optional): window size. Defaults to 50.
+        model_type (str, optional): model name, lstm, gru, etc. Defaults to 'lstm'.
+    """
     dfs = []
     models = []
 
@@ -59,6 +73,13 @@ def citywise_cv_meta(df_path, window_size=50, model_type='lstm'):
 
 
 def save_models(models, stack=False, model_type="lstm"):
+    """Save models to directory (tensorflow only)
+
+    Args:
+        models (list of tf.keras.model): models to save
+        stack (bool, optional): save two copies of the same fold. Defaults to False.
+        model_type (str, optional): incorporated into save path. Defaults to "lstm".
+    """
     save_dir = './models_task2'
     p1 = True
     fold = 0
@@ -81,6 +102,12 @@ def save_models(models, stack=False, model_type="lstm"):
 
 
 def model_prediction(data_csv, number_of_days):
+    """Predict future cases using trained models
+
+    Args:
+        data_csv (str): csv path
+        number_of_days (int): number of days to predict into the future
+    """
     model_type = 'lstm'
     save_dir = 'models_task2'
     if not os.path.exists(save_dir):

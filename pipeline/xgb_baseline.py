@@ -16,10 +16,22 @@ import pickle
 
 
 def train_test_split(data, n_test):
+    """Train test split by chopping off samples from time series at the end
+
+    Args:
+        data (np.ndarray): time series data
+        n_test ([type]): number of samples to test on
+
+    Returns:
+        np.ndarray: train, test
+    """
 	return data[:-n_test, :], data[-n_test:, :]
 
 
 def xgboost_forecast(train, testX):
+    """
+    Trains an XGBRegressor on past data
+    """
     # transform list into array
     train = np.asarray(train)
     # split into input and output columns
@@ -35,6 +47,15 @@ def xgboost_forecast(train, testX):
 
 # walk-forward validation for univariate data
 def walk_forward_validation(data, n_test):
+    """Validate by getting MAE on next day
+
+    Args:
+        train (np.ndarray): train array
+        model_type ([type]): model name to load from
+
+    Returns:
+        xgb.XGBRegressor: model
+    """
 	predictions = []
 	# split dataset
 	train, test = train_test_split(data, n_test)
@@ -58,7 +79,12 @@ def walk_forward_validation(data, n_test):
 
 
 def citywise_cv(df_paths):
-    """concatenates two city cv for one model"""
+    """
+    Concatenate models in 3 folds (validating on entirely different cities), using metadata
+
+    Args:
+        df_paths (list): list of paths to train on in folds
+    """
     dfs = []
     models = []
 
@@ -98,7 +124,12 @@ def citywise_cv(df_paths):
 
 
 def citywise_stack(df_paths):
-    """stacks two models per city cv"""
+    """
+    Stack models in 3 folds (validating on entirely different cities)
+
+    Args:
+        df_paths (list): list of paths to train on in folds
+    """
     dfs = []
     models = []
 
@@ -143,6 +174,13 @@ def citywise_stack(df_paths):
 
 
 def save_model(models, stack=False):
+    """Save models to directory (tensorflow only)
+
+    Args:
+        models (list of tf.keras.model): models to save
+        stack (bool, optional): save two copies of the same fold. Defaults to False.
+        model_type (str, optional): incorporated into save path. Defaults to "lstm".
+    """
     p1 = True
     fold = 0
 

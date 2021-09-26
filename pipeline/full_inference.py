@@ -13,6 +13,15 @@ import numpy as np
 
 
 def push(x, y):
+    """Rotates a nparray
+
+    Args:
+        x (np.ndarray): array to push element onto 
+        y (np.ndarray): elment to push on the end of x
+
+    Returns:
+        np.ndarray: array of shape x.shape
+    """
     push_len = len(y)
     assert len(x) >= push_len
     x[:-push_len] = x[push_len:]
@@ -21,6 +30,17 @@ def push(x, y):
 
 
 def infer_only_meta(df, tf_meta_models, future_pred=100, num_cols=6):
+    """Infer on metadata only models
+
+    Args:
+        df (pd.DataFrame): Dataframe to infer on (read directly from csv)
+        tf_meta_models (list): List of tensorflow models with metadata columns
+        future_pred (int, optional): Number of days in the future to predict. Defaults to 100.
+        num_cols (int, optional): Number of metadata columns. Defaults to 6.
+
+    Returns:
+        np.ndarray: Saves to `predictions.csv` and returns len(future_pred) long array of predictions
+    """
     meta_df = process_df(df, additional_features=True)
     del meta_df['total_cases_nextday']
     meta_data, meta_scaler = scale_data(meta_df.values)
@@ -46,6 +66,19 @@ def infer_only_meta(df, tf_meta_models, future_pred=100, num_cols=6):
 
 
 def infer_all(df, nometa=True, meta=True, oof=False, future_pred=100, save_name='predictions.csv'):
+    """Infer all models in the model/ directory
+
+    Args:
+        df (pd.DataFrame): csv to infer on
+        nometa (bool, optional): use nometa models. Defaults to True.
+        meta (bool, optional): use meta models. Defaults to True.
+        oof (bool, optional): show out of fold graphs. Defaults to False.
+        future_pred (int, optional): days to predict into future. Defaults to 100.
+        save_name (str, optional): prediction save path. Defaults to 'predictions.csv'.
+
+    Returns:
+        np.ndarray: Saves to `predictions.csv` and returns len(future_pred) long array of predictions
+    """
     if nometa:
         nometa_df = process_df(df.copy())
         del nometa_df['total_cases_nextday'], nometa_df['infected_vaccinated'], nometa_df['total_vaccinated'], nometa_df['infected_unvaccinated']

@@ -1,7 +1,11 @@
 # DCP COVID-19 Challenge
 
+## "Building a model is very simple, but building a simple model is the hardest thing there is"
+
 24 hours, 1700 lines of code, and 74 models, and here we are. This was so much fun, thanks to the organizers.
-### Our solution
+
+Given more time, we would have loved to simplify this process; but with the time we were given, a massive ensemble was the way to go.
+### Our task 1 solution
 - Stack models (in total, 74 models)
     - Diverse ensemble consisting of many types of models trained with different schemes (see Schemes below).
 - Stack after each single prediction so that following predictions are made on more accurate data. We stack with a weighted average based on val MSE
@@ -14,6 +18,16 @@
 2. Then import task 2 `from our_sub import model_prediction`.
     - For example, `model_prediction('./input/observations_1.csv', 100)`
     - Saves to `predictions.csv`
+
+### Code explanation
+`pipeline` contains the major pipeline components; training individual models, and inferencing an ensemble.
+- `full_inference.py` does inference and ensembles models; it supports models both utilizing metadata, and pure time series.
+- `full_train.py` is the main file for our task 2 submission; it trains an LSTM and a GRU on the feature engineered dataset. While we would have loved to train our entire suite of models, the time it takes makes it difficult to justify.
+- `tf_folds.py` contains the underlying training code for our LSTM, GRU, etc; all non-gradient boosting models
+- `xgb_baseline.py` contains our underlying XGBoost regressor training code.
+
+
+Our rudimentary feature engineering and other preprocessing is in `utils/preprocess.py`.
 
 ### All 74 models
 | path                                           | mse   | graph overlap? | type |
@@ -76,3 +90,4 @@
 2. Clipping results of the model using some sort of model - perhaps ARIMA
 3. Even more models, especially diversity; would have loved to try DAE.
 4. Postprocessing, but no time and unstable CV.
+If you would like to see our ideation process, check out `ideas.md` - it features our knowledge from other applications that we would have liked to try. 
