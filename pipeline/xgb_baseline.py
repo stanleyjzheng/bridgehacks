@@ -58,15 +58,15 @@ def xgboost_forecast_metalabel(train, testX):
 
 
 def walk_forward_validation_meta(data):
-	train, test = train_test_split(data, 1)
-	# seed history with training dataset
-	history = [x for x in train]
+    train, test = train_test_split(data, 1)
+    # seed history with training dataset
+    history = [x for x in train]
     testX, testy = test[0, :-1], test[0, -1]
     yhat, model = xgboost_forecast(history, testX)
     predictions.append(yhat)
     history.append(test[i])
-    
-	return error, test[:, 1], predictions, model
+
+    return error, test[:, 1], predictions, model
 
 # def xgboost_forecast_metalabel(train, testX):
 #     # transform list into array
@@ -130,9 +130,8 @@ def walk_forward_validation(data, n_test):
 		# summarize progress
 		print('>expected=%.1f, predicted=%.1f' % (testy, yhat))
 	# estimate prediction error
-	error = mean_squared_error(test[:, -1], predictions)
     
-	return error, test[:, 1], predictions, model
+	return predictions, model
 
 def model_cv(train, testX):
     # transform list into array
@@ -191,84 +190,40 @@ def train_cross_validation(df, splits):
 def citywise_cv(df_paths):
     dfs = []
     for i in df_paths:
-        dfs.append(load_df(i))
+        df = load_df(os.path.join(os.path.split(dir_path)[0], 'input', i))
+        del df['infected_unvaccinated'], df['infected_vaccinated'], df['total_cases_nextday'], df['total_vaccinated']
+        dfs.append(df)
     
     for n, (tr_idx, te_idx) in enumerate(KFold(n_splits=3, random_state=42, shuffle=True).split(dfs)):
         scalers = []
         trs = []
         
-        for i in dfs[tr_idx]:
-            del df['infected_unvaccinated'], df['infected_vaccinated'], df['total_cases_nextday'], df['total_vaccinated']
+        dfs_tr = [dfs[i] for i in tr_idx]
+        for df in dfs_tr:
             tr, scaler = scale_data(df.values)
             trs.append(tr)
             scalers.append(scaler)
         
-        tr = np.concatenate(trs, axis=-1)
+        tr = np.concatenate(trs, axis=0)
         data = series_to_supervised(tr, n_in=window_size)
-        yhat, model = walk_forward_validation(data, 10, meta_label)
+        yhat, model = walk_forward_validation(data, 1)
 
-        te = dfs[te_idx]
-        te, scaler = scale_data(df.values)
+        te = dfs[te_idx[0]]
+        te, scaler = scale_data(te.values)
         data = series_to_supervised(te, n_in=window_size)
         preds = []
         for i in data[:, :-1]:
             yhat = model.predict(np.asarray([i]))
             preds.append(yhat[0])
-        plt.plot(df['total_cases'].values[window_size + future:], label='Expected')
+        plt.plot(dfs[te_idx[0]]['total_cases'].values[window_size + future:], label='Expected')
         plt.plot(scaler.inverse_transform(preds), label='Predicted')
         plt.show()
         plt.clf()
-        print(f"{csv_name} mse {mean_squared_error(df['total_cases'].values[window_size + future:], scaler.inverse_transform(preds))}")
-
-
+        print(f"{te_idx[0]} mse {mean_squared_error(df['total_cases'].values[window_size + future:], scaler.inverse_transform(preds))}")
 
 if __name__ == '__main__':
-    future = 3
+    future = 0
     window_size = 50
     meta_label = True
 
-    csv_name = 'observations_1.csv'
-    df = load_df(os.path.join(os.path.split(dir_path)[0], 'input', csv_name))
-    if not meta_label:
-        del df['infected_unvaccinated'], df['infected_vaccinated'], df['total_cases_nextday'], df['total_vaccinated']
-    else:
-        del df['total_cases_nextday']
-
-    tr, scaler = scale_data(df.values)
-    data = series_to_supervised(tr, n_in=window_size)
-    yhat, model = walk_forward_validation(data, 10, meta_label)
-
-    csv_name = 'observations_2.csv'
-    df = load_df(os.path.join(os.path.split(dir_path)[0], 'input', csv_name))
-    del df['infected_unvaccinated'], df['infected_vaccinated'], df['total_cases_nextday'], df['total_vaccinated']
-
-    tr, scaler = scale_data(df.values)
-    data = series_to_supervised(tr, n_in=window_size)
-    preds = []
-    for i in data[:, :-1]:
-        yhat = model.predict(np.asarray([i]))
-        print(yhat.shape)
-        preds.append(yhat[0])
-    plt.plot(df['total_cases'].values[window_size + future:], label='Expected')
-    plt.plot(scaler.inverse_transform(preds), label='Predicted')
-    plt.show()
-    plt.clf()
-    print(f"{csv_name} mse {mean_squared_error(df['total_cases'].values[window_size + future:], scaler.inverse_transform(preds))}")
-
-    csv_name = 'observations_3.csv'
-    df = load_df(os.path.join(os.path.split(dir_path)[0], 'input', csv_name))
-    del df['infected_unvaccinated'], df['infected_vaccinated'], df['total_cases_nextday'], df['total_vaccinated']
-
-    tr, scaler = scale_data(df.values)
-    data = series_to_supervised(tr, n_in=window_size)
-    preds = []
-    for i in data[:, :-1]:
-        yhat = model.predict(np.asarray([i]))
-        preds.append(yhat[0])
-    plt.plot(df['total_cases'].values[window_size + future:], label='Expected')
-    plt.plot(scaler.inverse_transform(preds), label='Predicted')
-    plt.show()
-    plt.clf()
-    print(f"{csv_name} mse {mean_squared_error(df['total_cases'].values[window_size + future:], scaler.inverse_transform(preds))}")
-
-    # cross_validation(df, 5)
+    citywise_cv([f'observations_{i+1}.csv' for i in range(3)])
