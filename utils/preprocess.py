@@ -44,6 +44,7 @@ def process_df(df, additional_features=False):
 
         df['days_increasing'] = increasing_days
         df['cumulative_cases'] = rolling_cum
+        df = df[[i for i in df.columns if i != 'total_cases'] + ['total_cases']]
 
     return df
 
