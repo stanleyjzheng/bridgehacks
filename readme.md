@@ -7,12 +7,37 @@
 Given more time, we would have loved to simplify this process; but with the time we were given, a massive ensemble was the way to go.
 ### Our task 1 solution
 - Stack models (in total, 74 models)
-    - Diverse ensemble consisting of many types of models trained with different schemes (see Schemes below).
+    - Diverse ensemble consisting of many types of models trained with different schemes (see below).
 - Stack after each single prediction so that following predictions are made on more accurate data. We stack with a weighted average based on val MSE
 - Robust cross validation. For cross validation, we use 3 folds, one for each CSV. We scale each CSV individually so that this is possible.
 - Feature engineering for some models. Using meta labels, such as cumulative case counts, total vaccinated, etc. we get much better MAE, faster convergence, and our model does not "lag" one day behind in our CV; this indicates better robustness.
-- A lot more to talk about but no time. We will update this readme on GitHub to provide our full solution.
 
+Meta features: `infected_unvaccinated  infected_vaccinated  total_vaccinated  days_increasing  cumulative_cases`
+Would have liked to use `eligible_infections` but due to not having access to total populations, we elected to eliminate that feature.
+
+Unfortunately we did not have time to tune our models at all, but here is a summary.
+
+Models:
+- LSTM with/without meta
+- GRU with/without meta
+- CNN with/without meta
+- XGB without meta
+- MLP without meta
+
+![](https://cdn.discordapp.com/attachments/746585161067397236/891555866271186944/unknown.png)
+Above is a model trained with metadata and a lag of 5 days (predicting/training 5 days into the future). Note that this is out of fold, so the model has not trained on this data yet.
+
+![](https://cdn.discordapp.com/attachments/746585161067397236/891524987234689054/unknown.png)
+Similar model scheme on a different fold
+
+![](https://cdn.discordapp.com/attachments/746585161067397236/891720040930488420/unknown.png)
+Graph of our submission 1 (days 300-400 are predicted)
+
+![](https://cdn.discordapp.com/attachments/746585161067397236/891722505243480084/unknown.png)
+Graph of our submission 2 
+
+![](https://cdn.discordapp.com/attachments/746585161067397236/891723658098262057/unknown.png)
+Graph of our submission 3
 ### Usage
 1. `pip install -r requirements.txt`
 2. Then import task 2 `from our_sub import model_prediction`.
@@ -26,10 +51,9 @@ Given more time, we would have loved to simplify this process; but with the time
 - `tf_folds.py` contains the underlying training code for our LSTM, GRU, etc; all non-gradient boosting models
 - `xgb_baseline.py` contains our underlying XGBoost regressor training code.
 
-
 Our rudimentary feature engineering and other preprocessing is in `utils/preprocess.py`.
 
-### All 74 models
+### Table of all 74 models, and OOF MSE
 | path                                           | mse   | graph overlap? | type |
 | ---------------------------------------------- | ----- | -------------- | ---- |
 | ./models/tf\_fold\_0\_gru\_nostack\_nometa.h5  | 80559 | y              | gru  |
@@ -90,4 +114,7 @@ Our rudimentary feature engineering and other preprocessing is in `utils/preproc
 2. Clipping results of the model using some sort of model - perhaps ARIMA
 3. Even more models, especially diversity; would have loved to try DAE.
 4. Postprocessing, but no time and unstable CV.
+5. hparam tuning in task 2 - we really ran out of time near the end (Stanley's alarm didn't work) so our task 2 is very likely, bad. Really bad. Wouldn't be surprised if we lost to AutoML.
+6. SIR model (couldn't quite tune parameters)
+7. Finding a nicer preprocessing, perhaps with anomaly detection/seasonality
 If you would like to see our ideation process, check out `ideas.md` - it features our knowledge from other applications that we would have liked to try. 
