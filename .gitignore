@@ -2,3 +2,4 @@ input/BorderHacks*
 __pycache__/
 models/*
 models_task2/*
+.idea/
