@@ -1,0 +1,1 @@
+from pipeline.full_train import model_prediction

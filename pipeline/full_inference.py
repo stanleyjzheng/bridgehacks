@@ -1,8 +1,7 @@
 import os
 import sys
 
-dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.insert(0, os.path.join(os.path.split(dir_path)[0], 'utils'))
+sys.path.insert(0, '../utils')
 
 import glob
 import xgboost as xgb
@@ -10,7 +9,7 @@ import tensorflow as tf
 from preprocess import process_df, series_to_supervised, oof_idx, scale_data
 import pickle
 import pandas as pd
-from full_inference import infer_all
+import numpy as np
 
 
 def push(x, y):
@@ -21,29 +20,41 @@ def push(x, y):
     return x
 
 
-# def infer_sequential(window, model):
+def infer_only_meta(df, tf_meta_models, future_pred=100, num_cols=6):
+    meta_df = process_df(df, additional_features=True)
+    del meta_df['total_cases_nextday']
+    meta_data, meta_scaler = scale_data(meta_df.values)
+    meta_windowed = series_to_supervised(meta_data, n_in=50)
+    meta_windowed = np.asarray(meta_windowed).reshape(-1, 6, 50+1)
+
+    final_output = []
+    for i in range(future_pred):
+        meta_window = meta_windowed[-1, :, :]
+        meta_pred = []
+        for model in tf_meta_models:
+            meta_pred.append(model.predict(np.asarray([meta_windowed[i, :, :-1]]))[0])
+        meta_pred = np.array(meta_pred)
+        meta_pred = np.mean(meta_pred, axis=0)
+        final_output.append(meta_scaler.inverse_transform(meta_pred)[-1])
+
+        meta_window = np.append(meta_window, np.expand_dims(np.array(meta_pred), axis=1), axis=1)[1:]
+    pd.DataFrame({'Predicted_infections': np.array(final_output)}).to_csv('predictions.csv', index=False)
+    print('saved to predictions.csv')
+    return final_output
 
 
-# def infer_mlp(window, model):
-
-
-# def infer_meta(window, model):
-
-
-# def infer_xgb(window, model):
-
-
-def infer_all(df, nometa=True, meta=True, oof=False):
+def infer_all(df, nometa=True, meta=True, oof=False, future_pred=100, save_name='predictions.csv'):
     if nometa:
-        nometa_df = process_df(df)
-        del nometa_df['total_cases_nextday'], nometa_df['infected_vaccinated'], nometa_df['total_cases_nextday'], nometa_df['total_vaccinated'], nometa_df['infected_unvaccinated']
+        nometa_df = process_df(df.copy())
+        del nometa_df['total_cases_nextday'], nometa_df['infected_vaccinated'], nometa_df['total_vaccinated'], nometa_df['infected_unvaccinated']
+        # nometa_df = nometa_df.drop('total_cases_nextday', 1)
         nometa_data, nometa_scaler = scale_data(nometa_df.values)
-        nometa_windowed = series_to_supervised(tr, n_in=window_size)
+        nometa_windowed = series_to_supervised(nometa_data, n_in=window_size)
     if meta:
         meta_df = process_df(df, additional_features=True)
         del meta_df['total_cases_nextday']
         meta_data, meta_scaler = scale_data(meta_df.values)
-        meta_windowed = series_to_supervised(tr, n_in=window_size)
+        meta_windowed = series_to_supervised(meta_data, n_in=window_size)
         meta_windowed = np.asarray(meta_windowed).reshape(-1, num_cols_meta, window_size+1)
     if oof:
         preds = []
@@ -51,20 +62,21 @@ def infer_all(df, nometa=True, meta=True, oof=False):
             nometa_pred = []
             meta_pred = []
             for model in tf_meta_models:
-                meta_pred.append(model.predict(np.asarray([meta_windowed[i]]))[0])
-            for model in infer_xgb:
-                nometa_pred.append(model.predict(np.asarray([nometa_windowed[i]]))[0])
-            for model in infer_mlp:
-                nometa_pred.append(model.predict(np.asarray([nometa_windowed[i]]))[0])
-            for model in infer_sequential:
-                te = np.expand_dims(nometa_windowed[i], axis=-1)
+                meta_pred.append(model.predict(np.asarray([meta_windowed[i, :, :-1]]))[0])
+            for model in xgb_models:
+                nometa_pred.append(model.predict(np.asarray([nometa_windowed[i, :-1]]))[0])
+            for model in tf_mlp_models:
+                nometa_pred.append(model.predict(np.asarray([nometa_windowed[i, :-1]]))[0])
+            for model in tf_sequential_models:
+                te = np.expand_dims(nometa_windowed[i, :-1], axis=-1)
                 nometa_pred.append(model.predict(np.asarray([te]))[0])
             nometa_pred = np.array(nometa_pred)
             nometa_pred = np.mean(nometa_pred, axis=0)
+
             meta_pred = np.array(meta_pred)
             meta_pred = np.mean(meta_pred, axis=0)
-            meta_windowed[:, :, i+1] = meta_pred
-            nometa_windowed[:, i+1] = nometa_pred
+            meta_windowed[:, :, i] = meta_pred
+            nometa_windowed[:, i] = nometa_pred
             preds.append(nometa_scaler.inverse_transform(nometa_pred*0.3+meta_pred[-1]*0.7))
         plt.plot(df['total_cases'].values[window_size:], label='Expected')
         plt.plot(preds, label='Predicted')
@@ -73,43 +85,46 @@ def infer_all(df, nometa=True, meta=True, oof=False):
 
 
     final_output = []
+    for i in range(future_pred):
+        nometa_window = nometa_windowed[-1, :]
+        meta_window = meta_windowed[-1, :, :]
+        meta_pred = []
+        nometa_pred = []
+        for model in tf_meta_models:
+            meta_pred.append(model.predict(np.asarray([meta_windowed[i, :, :-1]]))[0])
+        for model in xgb_models:
+            nometa_pred.append(model.predict(np.asarray([nometa_windowed[i, :-1]]))[0])
+        for model in tf_mlp_models:
+            nometa_pred.append(model.predict(np.asarray([nometa_windowed[i, :-1]]))[0])
+        for model in tf_sequential_models:
+            te = np.expand_dims(nometa_windowed[i, :-1], axis=-1)
+            nometa_pred.append(model.predict(np.asarray([te]))[0])
+        nometa_pred = np.array(nometa_pred)
+        nometa_pred = np.mean(nometa_pred, axis=0)
+        meta_pred = np.array(meta_pred)
+        meta_pred = np.mean(meta_pred, axis=0)
+        final_output.append(nometa_scaler.inverse_transform(nometa_pred*0.3+meta_pred[-1]*0.7))
 
-    nometa_window = nometa_windowed[-1]
-    meta_window = meta_windowed[-1]
-    meta_pred = []
-    nometa_pred = []
-    for model in tf_meta_models:
-        meta_pred.append(model.predict(np.asarray([meta_windowed[i]]))[0])
-    for model in infer_xgb:
-        nometa_pred.append(model.predict(np.asarray([nometa_windowed[i]]))[0])
-    for model in infer_mlp:
-        nometa_pred.append(model.predict(np.asarray([nometa_windowed[i]]))[0])
-    for model in infer_sequential:
-        te = np.expand_dims(nometa_windowed[i], axis=-1)
-        nometa_pred.append(model.predict(np.asarray([te]))[0])
-    nometa_pred = np.array(nometa_pred)
-    nometa_pred = np.mean(nometa_pred, axis=0)
-    meta_pred = np.array(meta_pred)
-    meta_pred = np.mean(meta_pred, axis=0)
-    final_output.append(meta_scaler.inverse_transform(nometa_pred*0.3+meta_pred[-1]*0.7))
+        nometa_window = push(nometa_window, [nometa_pred*0.3+meta_pred[-1]*0.7])
+        meta_window = np.append(meta_window, np.expand_dims(np.array(meta_pred), axis=1), axis=1)[1:]
 
-    nometa_window = push(nometa_window, [nometa_pred*0.3+meta_pred[-1]*0.7])
-    meta_window = push(meta_window, [meta_pred])
+    pd.DataFrame({'Predicted_infections': np.array(final_output)[:, 0]}).to_csv(save_name, index=False)
 
+    return final_output
 
 
 if __name__ == '__main__':
     window_size = 50
     num_cols_meta = 6
-    num_cols = 4
-    future_pred = 100
+    num_cols = 1
+    save_dir = 'models'
 
     xgb_models = []
     tf_sequential_models = []
     tf_meta_models = []
     tf_mlp_models = []
 
-    for i in glob.glob(f'{}/*'):
+    for i in glob.glob(f'../{save_dir}/*'):
         if 'xgb' in i:
             with open(i, 'rb') as handle:
                 trained_model = pickle.load(handle)
@@ -122,4 +137,10 @@ if __name__ == '__main__':
                     tf_mlp_models.append(tf.keras.models.load_model(i))
             else:
                 tf_meta_models.append(tf.keras.models.load_model(i))
-    infer_all(pd.read_csv('./input/observations_1.csv'))
+    out = infer_all(pd.read_csv('../input/observations_3.csv'), save_name='predictions_3.csv')
+    existing = process_df(pd.read_csv('../input/observations_3.csv'))['total_cases'].values
+
+    my = np.append(existing, out)
+    import matplotlib.pyplot as plt
+    plt.plot(my)
+    plt.show()

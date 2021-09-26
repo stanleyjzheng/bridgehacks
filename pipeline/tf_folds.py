@@ -28,7 +28,7 @@ def get_mlp():
     return model_mlp
 
 
-def get_lstm():
+def get_lstm(num_cols=6):
     model = tf.keras.models.Sequential([
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128, return_sequences=True)),
         tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(128)),
@@ -233,7 +233,7 @@ def walk_forward_validation(train, model_type):
     return model
 
 
-def walk_forward_validation_meta(train):
+def walk_forward_validation_meta(train, num_cols=6, window_size=50, model_type='lstm'):
     train = np.asarray(train).reshape(-1, num_cols, window_size+1)
     trainX, trainy = train[:, :, :-1], train[:, :, -1]
 
