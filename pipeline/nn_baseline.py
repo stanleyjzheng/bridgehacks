@@ -8,7 +8,7 @@ print(os.path.join(os.path.split(dir_path)[0], 'utils'))
 import tensorflow as tf
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.metrics import mean_squared_error
-from preprocess import load_df, series_to_supervised, oof_idx, scale_data
+from preprocess import load_df, series_to_supervised_old_, oof_idx, scale_data
 import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow.keras.callbacks import ReduceLROnPlateau
@@ -93,7 +93,7 @@ def create_ae_mlp(num_columns, num_labels, hidden_units, dropout_rates, ls = 1e-
 
 def single_train(csv_name):
     window_size = 20
-    model_type = 'mlp'
+    model_type = 'lstm'
 
     df = load_df(os.path.join(os.path.split(dir_path)[0], 'input', csv_name))
     del df['infected_unvaccinated'], df['infected_vaccinated'], df['total_cases']
@@ -116,8 +116,8 @@ def single_train(csv_name):
         fold_train, scaler = scale_data(fold_train)
         fold_test = scaler.transform(fold_test)
 
-        x_train, y_train = series_to_supervised(fold_train)
-        x_test, y_test = series_to_supervised(fold_test)
+        x_train, y_train = series_to_supervised_old_(fold_train)
+        x_test, y_test = series_to_supervised_old_(fold_test)
 
         x_train = np.expand_dims(x_train, -1)
         x_test = np.expand_dims(x_test, -1)
@@ -131,6 +131,7 @@ def single_train(csv_name):
         elif model_type == 'ae_mlp':
             model = create_ae_mlp(window_size, 1, [96, 96, 896, 448, 448, 256], [0.03527936123679956, 0.038424974585075086, 0.42409238408801436, 0.10431484318345882, 0.49230389137187497, 0.32024444956111164, 0.2716856145683449, 0.4379233941604448], 1e-8)
 
+        print(x_train.shape)
         model.fit(x_train, y_train, epochs=100, validation_data=(x_test, y_test), batch_size=128, verbose=2)
 
         oof_te_index = oof_idx(df['total_cases_nextday'].values, te_idx)
