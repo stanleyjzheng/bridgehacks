@@ -12,6 +12,7 @@ from sklearn.multioutput import MultiOutputRegressor
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import pickle
 
 
 def train_test_split(data, n_test):
@@ -59,6 +60,8 @@ def walk_forward_validation(data, n_test):
 def citywise_cv(df_paths):
     """concatenates two city cv for one model"""
     dfs = []
+    models = []
+
     for i in df_paths:
         df = load_df(os.path.join(os.path.split(dir_path)[0], 'input', i))
         del df['infected_unvaccinated'], df['infected_vaccinated'], df['total_cases_nextday'], df['total_vaccinated']
@@ -77,6 +80,7 @@ def citywise_cv(df_paths):
         tr = np.concatenate(trs, axis=0)
         data = series_to_supervised(tr, n_in=window_size, shift=future)
         yhat, model = walk_forward_validation(data, 1)
+        models.append(model)
 
         te = dfs[te_idx[0]]
         te, scaler = scale_data(te.values)
@@ -90,11 +94,14 @@ def citywise_cv(df_paths):
         plt.show()
         plt.clf()
         print(f"{te_idx[0]} mse {mean_squared_error(df['total_cases'].values[window_size + future:], scaler.inverse_transform(preds))}")
+    save_model(models)
 
 
 def citywise_stack(df_paths):
     """stacks two models per city cv"""
     dfs = []
+    models = []
+
     for i in df_paths:
         df = load_df(os.path.join(os.path.split(dir_path)[0], 'input', i))
         del df['infected_unvaccinated'], df['infected_vaccinated'], df['total_cases_nextday'], df['total_vaccinated']
@@ -114,6 +121,7 @@ def citywise_stack(df_paths):
         for tr in trs:
             data = series_to_supervised(tr, n_in=window_size, shift=future)
             yhat, model = walk_forward_validation(data, 1)
+            models.append(model)
 
             te = dfs[te_idx[0]]
             te, scaler = scale_data(te.values)
@@ -131,6 +139,29 @@ def citywise_stack(df_paths):
         plt.show()
         plt.clf()
         print(f"{te_idx[0]} mse {mean_squared_error(df['total_cases'].values[window_size + future:], scaler.inverse_transform(preds))}")
+    save_model(models, stack=True)
+
+
+def save_model(models, stack=False):
+    p1 = True
+    fold = 0
+
+    for i in models:
+        if stack:
+            if p1:
+                name = f"xgb_fold_{fold}_stackp1.pkl"
+                p1 = False
+            else:
+                name = f"xgb_fold_{fold}_stackp2.pkl"
+                fold += 1
+                p1 = True
+        else:
+            name = f"xgb_fold_{fold}_nostack.pkl"
+            fold += 1
+
+        print(name)
+        with open(os.path.join('models', name), 'wb') as f:
+            pickle.dump(i, f)
 
 
 if __name__ == '__main__':
