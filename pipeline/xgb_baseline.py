@@ -39,6 +39,8 @@ def xgboost_forecast(train, testX):
     train = np.asarray(train)
     # split into input and output columns
     trainX, trainy = train[:, :-1], train[:, -1]
+    print(trainX.shape)
+    print(trainy.shape)
     # fit model
     model = xgb.XGBRegressor(objective='reg:squarederror', n_estimators=200)
     model.fit(trainX, trainy)
@@ -47,67 +49,26 @@ def xgboost_forecast(train, testX):
     return yhat[0], model
 
 
-def xgboost_forecast_metalabel(train, testX):
-    train = np.asarray(train)
-    trainX, trainy = train[:, :-1], train[:, -1]
+def xgboost_forecast_metalabel(train):
+
+    train = np.asarray(train).reshape(-1, window_size+1, num_features)
+    trainX, trainy = train[:, :, :-1], train[:, :, -1]
+
     model = xgb.XGBRegressor(objective='reg:squarederror', n_estimators=600)
+    print(trainX.shape)
+    print(trainy.shape)
     model = MultiOutputRegressor(model).fit(trainX, trainy)
 
-    yhat = model.predict(np.asarray([testX]))
-    return yhat, model
+    return model
 
 
 def walk_forward_validation_meta(data):
     train, test = train_test_split(data, 1)
     # seed history with training dataset
     history = [x for x in train]
-    testX, testy = test[0, :-1], test[0, -1]
-    yhat, model = xgboost_forecast(history, testX)
-    predictions.append(yhat)
-    history.append(test[i])
+    model = xgboost_forecast_metalabel(history)
 
-    return error, test[:, 1], predictions, model
-
-# def xgboost_forecast_metalabel(train, testX):
-#     # transform list into array
-#     train = np.asarray(train)
-#     # split into input and output columns
-    
-#     target_preds = []
-#     models = []
-#     for target in range(train.shape[1]):
-#         trainX, trainy = train[:, [i for i in range(train.shape[1]) if i!=target]], train[:, target]
-#         model = xgb.XGBRegressor(objective='reg:squarederror', n_estimators=200)
-#         model.fit(trainX, trainy)
-#         yhat = model.predict(np.asarray([testX[target]]))
-#         target_preds.append(yhat[0])
-
-#     return target_preds, models
-
-
-# # walk-forward validation for univariate data
-# def walk_forward_validation_meta(data, n_test, meta_label=False):
-#     predictions = []
-#     models = []
-#     # split dataset
-#     train, test = train_test_split(data, n_test)
-#     # seed history with training dataset
-#     # step over each time-step in the test set
-#     target_preds = []
-#     for target in range(test.shape[0]):
-#         history = [x for x in train]
-#         trainX, trainy = train[:, [i for i in range(train.shape[1]) if i!=target]], train[:, target]
-#         # fit model on history and make a prediction
-#         yhat, model = xgboost_forecast(history, testX)
-#         # store forecast in list of predictions
-#         target_preds.append(yhat)
-#         # add actual observation to history for the next loop
-#         history.append(test[0])
-#         # summarize progress
-#     models.append(model)
-#     predictions.append(np.array(target_preds))
-
-#     return predictions, model
+    return model
 
 
 # walk-forward validation for univariate data
@@ -188,6 +149,7 @@ def train_cross_validation(df, splits):
     return model
 
 def citywise_cv(df_paths):
+    """concatenates two city cv for one model"""
     dfs = []
     for i in df_paths:
         df = load_df(os.path.join(os.path.split(dir_path)[0], 'input', i))
@@ -197,7 +159,7 @@ def citywise_cv(df_paths):
     for n, (tr_idx, te_idx) in enumerate(KFold(n_splits=3, random_state=42, shuffle=True).split(dfs)):
         scalers = []
         trs = []
-        
+
         dfs_tr = [dfs[i] for i in tr_idx]
         for df in dfs_tr:
             tr, scaler = scale_data(df.values)
@@ -221,9 +183,98 @@ def citywise_cv(df_paths):
         plt.clf()
         print(f"{te_idx[0]} mse {mean_squared_error(df['total_cases'].values[window_size + future:], scaler.inverse_transform(preds))}")
 
+
+def citywise_stack(df_paths):
+    """stacks two models per city cv"""
+    dfs = []
+    for i in df_paths:
+        df = load_df(os.path.join(os.path.split(dir_path)[0], 'input', i))
+        del df['infected_unvaccinated'], df['infected_vaccinated'], df['total_cases_nextday'], df['total_vaccinated']
+        dfs.append(df)
+
+    for n, (tr_idx, te_idx) in enumerate(KFold(n_splits=3, random_state=42, shuffle=True).split(dfs)):
+        scalers = []
+        trs = []
+
+        dfs_tr = [dfs[i] for i in tr_idx]
+        for df in dfs_tr:
+            tr, scaler = scale_data(df.values)
+            trs.append(tr)
+            scalers.append(scaler)
+        
+        master_preds = []
+        for tr in trs:
+            data = series_to_supervised(tr, n_in=window_size)
+            yhat, model = walk_forward_validation(data, 1)
+
+            te = dfs[te_idx[0]]
+            te, scaler = scale_data(te.values)
+            data = series_to_supervised(te, n_in=window_size)
+            preds = []
+            for i in data[:, :-1]:
+                yhat = model.predict(np.asarray([i]))
+                preds.append(yhat[0])
+            master_preds.append(np.array(preds))
+        master_preds = np.mean(np.array(master_preds), axis=0)
+
+
+        plt.plot(dfs[te_idx[0]]['total_cases'].values[window_size + future:], label='Expected')
+        plt.plot(scaler.inverse_transform(master_preds), label='Predicted')
+        plt.show()
+        plt.clf()
+        print(f"{te_idx[0]} mse {mean_squared_error(df['total_cases'].values[window_size + future:], scaler.inverse_transform(preds))}")
+
+
+def citywise_cv_meta(df_paths):
+    dfs = []
+    for i in df_paths:
+        df = load_df(os.path.join(os.path.split(dir_path)[0], 'input', i))
+        del df['total_cases_nextday']
+        dfs.append(df)
+
+    for n, (tr_idx, te_idx) in enumerate(KFold(n_splits=3, random_state=42, shuffle=True).split(dfs)):
+        scalers = []
+        trs = []
+
+        dfs_tr = [dfs[i] for i in tr_idx]
+        for df in dfs_tr:
+            print(df)
+            tr, scaler = scale_data(df.values)
+            trs.append(tr)
+            scalers.append(scaler)
+        
+        master_preds = []
+        for tr in trs:
+            data = series_to_supervised(tr, n_in=window_size)
+            model = walk_forward_validation_meta(data)
+
+            te = dfs[te_idx[0]]
+            te, scaler = scale_data(te.values)
+            data = series_to_supervised(te, n_in=window_size)
+            preds = []
+            for i in data[:, :-1]:
+                yhat = model.predict(np.asarray([i]))
+                print(yhat[0])
+                preds.append(yhat[0])
+            master_preds.append(np.array(preds))
+        master_preds = np.mean(np.array(master_preds), axis=0)
+
+
+        plt.plot(dfs[te_idx[0]]['total_cases'].values[window_size + future:], label='Expected')
+        # print(master_preds.shape)
+        # print(df.values.shape)
+        plt.plot(scaler.inverse_transform(master_preds), label='Predicted')
+        plt.show()
+        plt.clf()
+        print(f"{te_idx[0]} mse {mean_squared_error(df['total_cases'].values[window_size + future:], scaler.inverse_transform(preds))}")
+
+
 if __name__ == '__main__':
     future = 0
     window_size = 50
     meta_label = True
+    num_features = 4
 
-    citywise_cv([f'observations_{i+1}.csv' for i in range(3)])
+    # citywise_cv([f'observations_{i+1}.csv' for i in range(3)])
+    # citywise_stack([f'observations_{i+1}.csv' for i in range(3)])
+    citywise_cv_meta([f'observations_{i+1}.csv' for i in range(3)])
